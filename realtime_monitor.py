@@ -45,11 +45,18 @@ class SolarMonitor:
         mag = self.fetch_json(NOAA_URLS["mag"])
         plasma = self.fetch_json(NOAA_URLS["plasma"])
         kp = self.fetch_json(NOAA_URLS["kp"])
+        
         if not (mag and plasma and kp): return None
+        
         try:
             raw = {
-                "IMF_Magnitude": mag[-1][6], "Bx": mag[-1][1], "By": mag[-1][2], "Bz": mag[-1][3],
-                "Proton_Density": plasma[-1][1], "Flow_Speed": plasma[-1][2], "Kp_x10": float(kp[-1][1]) * 10
+                "IMF_Magnitude": mag[-1][6], 
+                "Bx": mag[-1][1], 
+                "By": mag[-1][2], 
+                "Bz": mag[-1][3],
+                "Proton_Density": plasma[-1][1], 
+                "Flow_Speed": plasma[-1][2], 
+                "Kp_x10": float(kp[-1][1]) * 10
             }
             cleaned = {k: self._clean_value(v, k) for k, v in raw.items()}
             if None in cleaned.values(): return None
@@ -68,10 +75,30 @@ class SolarMonitor:
                     try:
                         pred = predict_batch(list(self.history_buffer))
                         vis_risk, img_obj = self.vision.analyze_url(SDO_URL)
-                        if img_obj: img_obj.save("latest_sun.jpg")
+                        
+                        if img_obj: 
+                            img_obj.save("latest_sun.jpg")
+                        
                         self.db.save_measurement(data, pred, visual_risk=vis_risk, image_url="latest_sun.jpg")
-                        print(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ Saved.")
-                    except Exception as e: print(f"🔥 Error: {e}")
+                        
+                        # --- ОБНОВЛЕННЫЙ ВЫВОД ПАРАМЕТРОВ ---
+                        timestamp = datetime.now().strftime('%H:%M:%S')
+                        speed = data['Flow_Speed']
+                        density = data['Proton_Density']
+                        bz = data['Bz']
+                        kp = data['Kp_x10'] / 10
+                        risk = pred['risk_score']
+
+                        print(f"[{timestamp}] ✅ Data Saved")
+                        print(f"   📊 Wind: {speed:.1f} km/s | Density: {density:.1f} p/cm³ | Bz: {bz:.2f} nT | Kp: {kp:.1f}")
+                        print(f"   🧠 AI Risk: {risk:.2f}% | Vision Risk: {vis_risk:.2f}%")
+                        print("-" * 60)
+                        
+                    except Exception as e: 
+                        print(f"🔥 Error: {e}")
+            else:
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] 💤 Waiting for data...")
+            
             time.sleep(interval)
 
 if __name__ == "__main__":
